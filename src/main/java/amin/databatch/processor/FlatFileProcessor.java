@@ -7,8 +7,11 @@ import org.springframework.batch.item.ItemProcessor;
 @Slf4j
 public class FlatFileProcessor implements ItemProcessor<FileDTO, FileDTO> {
     @Override
-    public FileDTO process(FileDTO fileDTO) throws Exception {
+    public FileDTO process(FileDTO fileDTO) {
         log.debug("processing {}", fileDTO);
-        return null;
+        if (fileDTO != null) {
+            fileDTO.setSum(fileDTO.getColumn_1()+fileDTO.getColumn_2());
+        }
+        return fileDTO;
     }
 }

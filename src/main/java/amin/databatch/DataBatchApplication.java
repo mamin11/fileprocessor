@@ -67,7 +67,7 @@ public class DataBatchApplication {
 
 	//reading data from csv
 	@Bean
-	public ItemReader<FileDTO> fileReader() {
+	public FlatFileItemReader<FileDTO> fileReader() {
 		FlatFileItemReader itemReader = new FlatFileItemReader<FileDTO>();
 		itemReader.setLinesToSkip(1);
 		itemReader.setResource(new FileSystemResource("C:\\Users\\Abdim\\Desktop\\JAVA\\data-batch\\src\\main\\resources\\files\\testFile.csv"));
