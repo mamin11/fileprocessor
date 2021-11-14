@@ -8,10 +8,11 @@ import org.springframework.batch.item.ItemProcessor;
 public class FlatFileProcessor implements ItemProcessor<FileDTO, FileDTO> {
     @Override
     public FileDTO process(FileDTO fileDTO) {
-        log.debug("processing {}", fileDTO);
         if (fileDTO != null) {
             fileDTO.setSum(fileDTO.getColumn_1()+fileDTO.getColumn_2());
         }
+
+        log.debug("processing {}", fileDTO);
         return fileDTO;
     }
 }
