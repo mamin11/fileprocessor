@@ -1,5 +1,6 @@
 package amin.databatch;
 
+import amin.databatch.api.FileStorageService;
 import amin.databatch.entity.FileDTO;
 import amin.databatch.mapper.DataFieldSetMapper;
 import amin.databatch.processor.FlatFileProcessor;
@@ -18,6 +19,7 @@ import org.springframework.batch.item.file.FlatFileItemWriter;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.transform.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
@@ -29,7 +31,7 @@ import java.util.Random;
 @SpringBootApplication
 @EnableBatchProcessing
 @Slf4j
-public class DataBatchApplication {
+public class DataBatchApplication implements CommandLineRunner {
 
 	@Autowired
 	public JobBuilderFactory jobBuilderFactory;
@@ -39,6 +41,9 @@ public class DataBatchApplication {
 
 	@Autowired
 	JobLauncher jobLauncher;
+
+	@javax.annotation.Resource
+	FileStorageService fileStorageService;
 
 	public static final String[] tokens = new String[] {"column_1", "column_2"};
 
@@ -59,7 +64,7 @@ public class DataBatchApplication {
 	public Step fileProcessingStep() {
 		return this.stepBuilderFactory.get("readFileStep")
 				.<FileDTO, FileDTO>chunk(1)
-				.reader(fileReader())
+				.reader(fileReader("test.csv"))
 				.processor(fileProcessor())
 				.writer(flatFileWriter())
 				.build();
@@ -107,10 +112,10 @@ public class DataBatchApplication {
 
 	//reading data from csv
 	@Bean
-	public FlatFileItemReader<FileDTO> fileReader() {
+	public FlatFileItemReader<FileDTO> fileReader(String filename) {
 		FlatFileItemReader itemReader = new FlatFileItemReader<FileDTO>();
 		itemReader.setLinesToSkip(1);
-		itemReader.setResource(new FileSystemResource("C:\\Users\\Abdim\\Desktop\\JAVA\\data-batch\\src\\main\\resources\\files\\testFile.csv"));
+		itemReader.setResource(new FileSystemResource("uploads/" + filename + ".csv"));
 
 		DefaultLineMapper<FileDTO> lineMapper = new DefaultLineMapper<FileDTO>();
 		DelimitedLineTokenizer tokenizer = new DelimitedLineTokenizer();
@@ -129,4 +134,9 @@ public class DataBatchApplication {
 		SpringApplication.run(DataBatchApplication.class, args);
 	}
 
+	@Override
+	public void run(String... args) throws Exception {
+		fileStorageService.deleteAll();
+		fileStorageService.init();
+	}
 }

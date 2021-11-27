@@ -1,5 +1,11 @@
 package amin.databatch.api;
 
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobExecution;
+import org.springframework.batch.core.JobParameter;
+import org.springframework.batch.core.JobParameters;
+import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -15,12 +21,18 @@ import java.util.stream.Collectors;
 @RestController
 @CrossOrigin("http://localhost:8081")
 @RequestMapping(path = "api/v1/file")
+@Slf4j
 public class ApiController {
 
     @Autowired
-    FileStorageService storageService;
+    private FileStorageService storageService;
 
-    @PatchMapping
+    JobLauncher jobLauncher;
+
+    @Autowired
+    Job job;
+
+    @PostMapping("/upload")
     @CrossOrigin
     public ResponseEntity<ResponseMessage> submitFile(@RequestParam("file") MultipartFile file) {
         String message = "";
@@ -31,6 +43,7 @@ public class ApiController {
             return ResponseEntity.status(HttpStatus.OK).body(new ResponseMessage(message));
         } catch (Exception e) {
             message = "Could not upload the file: " + file.getOriginalFilename() + "!";
+            log.debug(e.toString());
             return ResponseEntity.status(HttpStatus.EXPECTATION_FAILED).body(new ResponseMessage(message));
         }
     }

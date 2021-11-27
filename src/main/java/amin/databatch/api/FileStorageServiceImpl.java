@@ -2,6 +2,7 @@ package amin.databatch.api;
 
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import org.springframework.stereotype.Service;
 import org.springframework.util.FileSystemUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -12,13 +13,16 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
+@Service
 public class FileStorageServiceImpl implements FileStorageService{
     private final Path root = Paths.get("uploads");
+    private final Path output = Paths.get("output");
 
     @Override
     public void init() {
         try {
             Files.createDirectory(root);
+            Files.createDirectory(output);
         } catch (IOException e) {
             throw new RuntimeException("Could not initialize folder for upload!");
         }
@@ -52,6 +56,7 @@ public class FileStorageServiceImpl implements FileStorageService{
     @Override
     public void deleteAll() {
         FileSystemUtils.deleteRecursively(root.toFile());
+        FileSystemUtils.deleteRecursively(output.toFile());
     }
 
     @Override
