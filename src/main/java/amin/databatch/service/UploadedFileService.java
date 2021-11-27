@@ -18,7 +18,9 @@ public class UploadedFileService {
 
     public void add(UploadedFile file) {
         // validate
-
+        if (file.getFilename().length() <= 0 || file.getFilename() == null) {
+            throw new IllegalStateException("File validation failed");
+        }
         repository.save(file);
     }
 

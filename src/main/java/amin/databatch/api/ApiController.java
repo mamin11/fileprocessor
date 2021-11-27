@@ -1,5 +1,7 @@
 package amin.databatch.api;
 
+import amin.databatch.entity.UploadedFile;
+import amin.databatch.service.UploadedFileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
@@ -11,6 +13,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.MvcUriComponentsBuilder;
@@ -27,17 +30,22 @@ public class ApiController {
     @Autowired
     private FileStorageService storageService;
 
-    JobLauncher jobLauncher;
-
     @Autowired
-    Job job;
+    UploadedFileService uploadedFileService;
 
     @PostMapping("/upload")
     @CrossOrigin
+    @Transactional
     public ResponseEntity<ResponseMessage> submitFile(@RequestParam("file") MultipartFile file) {
         String message = "";
         try {
             storageService.save(file);
+
+            // add to db
+            UploadedFile file1 = new UploadedFile();
+            file1.setFilename(file.getOriginalFilename());
+            file1.setProcessed(false);
+            uploadedFileService.add(file1);
 
             message = "Uploaded the file successfully: " + file.getOriginalFilename();
             return ResponseEntity.status(HttpStatus.OK).body(new ResponseMessage(message));

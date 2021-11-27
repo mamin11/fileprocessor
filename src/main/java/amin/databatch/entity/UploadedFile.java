@@ -1,8 +1,10 @@
 package amin.databatch.entity;
 
+import lombok.Data;
 
 import javax.persistence.*;
 
+@Data
 @Table
 @Entity
 public class UploadedFile {
