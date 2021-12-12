@@ -1,12 +1,18 @@
 package amin.databatch.entity;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
 
 @Data
+@Builder
 @Table
 @Entity
+@AllArgsConstructor
+@NoArgsConstructor
 public class UploadedFile {
 
     @Id

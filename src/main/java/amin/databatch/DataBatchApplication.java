@@ -2,7 +2,9 @@ package amin.databatch;
 
 import amin.databatch.api.FileStorageService;
 import amin.databatch.entity.FileDTO;
+import amin.databatch.entity.UploadedFile;
 import amin.databatch.mapper.DataFieldSetMapper;
+import amin.databatch.mapper.UploadedFileMapper;
 import amin.databatch.processor.FlatFileProcessor;
 import amin.databatch.service.StringHeaderWriter;
 import lombok.extern.slf4j.Slf4j;
@@ -11,21 +13,33 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.database.JdbcCursorItemReader;
+import org.springframework.batch.item.database.JdbcPagingItemReader;
+import org.springframework.batch.item.database.PagingQueryProvider;
+import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
+import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
+import org.springframework.batch.item.database.support.SqlPagingQueryProviderFactoryBean;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.FlatFileItemWriter;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.transform.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 
+import javax.sql.DataSource;
 import java.util.Random;
 
 @SpringBootApplication
@@ -45,6 +59,9 @@ public class DataBatchApplication implements CommandLineRunner {
 	@javax.annotation.Resource
 	FileStorageService fileStorageService;
 
+	@Autowired
+	DataSource dataSource;
+
 	public static final String[] tokens = new String[] {"column_1", "column_2"};
 
 
@@ -53,18 +70,20 @@ public class DataBatchApplication implements CommandLineRunner {
 
 	public Resource outPutResource = new FileSystemResource("output/processedFile"+ randomWithNextInt +".csv");
 
-	@Bean
+	@Bean(name = "ExcelFileProcessingJob")
+	@Scheduled(fixedRate = 2000)
 	public Job job () throws Exception {
-		return this.jobBuilderFactory.get("ExcelFileProcessingJob"+ randomWithNextInt)
+		return this.jobBuilderFactory.get("ExcelFileProcessingJob")
 				.start(fileProcessingStep())
 				.build();
+//		return this.jobBuilderFactory.get("ExcelFileProcessingJob"+ randomWithNextInt)
 	}
 
 	@Bean
 	public Step fileProcessingStep() {
 		return this.stepBuilderFactory.get("readFileStep")
 				.<FileDTO, FileDTO>chunk(1)
-				.reader(fileReader("test.csv"))
+				.reader(fileReader(null))
 				.processor(fileProcessor())
 				.writer(flatFileWriter())
 				.build();
@@ -112,10 +131,11 @@ public class DataBatchApplication implements CommandLineRunner {
 
 	//reading data from csv
 	@Bean
-	public FlatFileItemReader<FileDTO> fileReader(String filename) {
+	@StepScope
+	public FlatFileItemReader<FileDTO> fileReader(@Value("#{jobParameters['filename']}") String filename) {
 		FlatFileItemReader itemReader = new FlatFileItemReader<FileDTO>();
 		itemReader.setLinesToSkip(1);
-		itemReader.setResource(new FileSystemResource("uploads/" + filename + ".csv"));
+		itemReader.setResource(new FileSystemResource("uploads/" + filename));
 
 		DefaultLineMapper<FileDTO> lineMapper = new DefaultLineMapper<FileDTO>();
 		DelimitedLineTokenizer tokenizer = new DelimitedLineTokenizer();
@@ -128,6 +148,28 @@ public class DataBatchApplication implements CommandLineRunner {
 
 		itemReader.setLineMapper(lineMapper);
 		return itemReader;
+	}
+
+	@Bean
+	public PagingQueryProvider queryProvider() throws Exception {
+		SqlPagingQueryProviderFactoryBean factoryBean = new SqlPagingQueryProviderFactoryBean();
+		factoryBean.setSelectClause("select *");
+		factoryBean.setFromClause("from uploaded_file");
+		factoryBean.setSortKey("id");
+		factoryBean.setDataSource(dataSource);
+		return factoryBean.getObject();
+	}
+
+	@Bean
+	public ItemReader<UploadedFile> dbReader() throws Exception {
+		String sql = "SELECT * FROM uploaded_file";
+
+		return new JdbcCursorItemReaderBuilder<UploadedFile>()
+				.name("reader")
+				.dataSource(dataSource)
+				.sql(sql)
+				.rowMapper(new UploadedFileMapper())
+				.build();
 	}
 
 	public static void main(String[] args) {
