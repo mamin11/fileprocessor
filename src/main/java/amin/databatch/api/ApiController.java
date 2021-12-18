@@ -1,6 +1,7 @@
 package amin.databatch.api;
 
 import amin.databatch.entity.UploadedFile;
+import amin.databatch.repository.UploadedFileRepository;
 import amin.databatch.service.UploadedFileService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.*;
@@ -21,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.MvcUriComponentsBuilder;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.stream.Collectors;
 
@@ -38,6 +40,9 @@ public class ApiController {
 
     @Autowired
     private JobLauncher jobLauncher;
+
+    @Autowired
+    UploadedFileRepository uploadedFileRepository;
 
     @Autowired
     @Qualifier("ExcelFileProcessingJob")
@@ -75,6 +80,15 @@ public class ApiController {
     @CrossOrigin
     public ResponseEntity<ResponseMessage> launch(@RequestParam("filename") String filename) throws JobInstanceAlreadyCompleteException, JobExecutionAlreadyRunningException, JobParametersInvalidException, JobRestartException {
         JobParameters jobParameters = new JobParametersBuilder().addString("filename", filename).toJobParameters();
+        // launch job only if file exists in DB and is not processed
+        Optional<UploadedFile> optionalUploadedFile = uploadedFileRepository.findByFilename(filename);
+        if (optionalUploadedFile.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResponseMessage("File doesn't exist"));
+        }
+        if (optionalUploadedFile.get().isProcessed()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ResponseMessage("File already processed"));
+        }
+
         final JobExecution jobExecution = jobLauncher.run(ExcelFileProcessingJob, jobParameters);
         return ResponseEntity.status(HttpStatus.OK).body(new ResponseMessage("Success"));
     }

@@ -51,8 +51,6 @@ public class DataBatchApplication implements CommandLineRunner {
 	//TODO:
 	// - remove predefined columns
 	// - add support for more mathematical operations
-	// - if filename not exist - stop job, return fail response in api
-	// - mark filename in DB as processed
 	// - store files in s3
 
 	@Autowired
@@ -170,9 +168,6 @@ public class DataBatchApplication implements CommandLineRunner {
 	@Bean
 	@StepScope
 	public FlatFileItemReader<FileDTO> fileReader(@Value("#{jobParameters['filename']}") String filename) {
-		// check filename is not null or is in DB
-
-
 		FlatFileItemReader itemReader = new FlatFileItemReader<FileDTO>();
 		itemReader.setLinesToSkip(1);
 		itemReader.setResource(new FileSystemResource("uploads/" + filename));
