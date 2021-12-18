@@ -6,10 +6,10 @@ import amin.databatch.entity.UploadedFile;
 import amin.databatch.mapper.DataFieldSetMapper;
 import amin.databatch.mapper.UploadedFileMapper;
 import amin.databatch.processor.FlatFileProcessor;
+import amin.databatch.repository.UploadedFileRepository;
 import amin.databatch.service.StringHeaderWriter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.batch.core.Job;
-import org.springframework.batch.core.Step;
+import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
@@ -40,12 +40,20 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import javax.sql.DataSource;
+import java.util.Optional;
 import java.util.Random;
 
 @SpringBootApplication
 @EnableBatchProcessing
 @Slf4j
 public class DataBatchApplication implements CommandLineRunner {
+
+	//TODO:
+	// - remove predefined columns
+	// - add support for more mathematical operations
+	// - if filename not exist - stop job, return fail response in api
+	// - mark filename in DB as processed
+	// - store files in s3
 
 	@Autowired
 	public JobBuilderFactory jobBuilderFactory;
@@ -61,6 +69,9 @@ public class DataBatchApplication implements CommandLineRunner {
 
 	@Autowired
 	DataSource dataSource;
+
+	@Autowired
+	UploadedFileRepository uploadedFileRepository;
 
 	public static final String[] tokens = new String[] {"column_1", "column_2"};
 
@@ -86,11 +97,37 @@ public class DataBatchApplication implements CommandLineRunner {
 				.reader(fileReader(null))
 				.processor(fileProcessor())
 				.writer(flatFileWriter())
+				.listener(myStepListerner())
 				.build();
+	}
+
+	private StepExecutionListener myStepListerner() {
+		return new StepExecutionListener() {
+			@Override
+			public void beforeStep(StepExecution stepExecution) {
+				log.debug("Before step");
+			}
+
+			@Override
+			public ExitStatus afterStep(StepExecution stepExecution) {
+				log.debug("after step");
+				if (stepExecution.getExitStatus() != ExitStatus.FAILED) {
+					// mark file as processed
+					String filename = stepExecution.getJobParameters().getString("filename");
+					Optional<UploadedFile> optionalUploadedFile = uploadedFileRepository.findByFilename(filename);
+					if (!optionalUploadedFile.isEmpty()) {
+						UploadedFile file = optionalUploadedFile.get();
+						file.setProcessed(true);
+					}
+				}
+				return ExitStatus.COMPLETED;
+			}
+		};
 	}
 
 	@Bean
 	public ItemWriter<FileDTO> flatFileWriter() {
+		log.debug("writing file");
 		FlatFileItemWriter<FileDTO> writer = new FlatFileItemWriter<>();
 		writer.setResource(outPutResource);
 		writer.setAppendAllowed(true);
@@ -133,6 +170,9 @@ public class DataBatchApplication implements CommandLineRunner {
 	@Bean
 	@StepScope
 	public FlatFileItemReader<FileDTO> fileReader(@Value("#{jobParameters['filename']}") String filename) {
+		// check filename is not null or is in DB
+
+
 		FlatFileItemReader itemReader = new FlatFileItemReader<FileDTO>();
 		itemReader.setLinesToSkip(1);
 		itemReader.setResource(new FileSystemResource("uploads/" + filename));
